@@ -26,12 +26,13 @@ function createGame(firstUser) {
   let lastRaise = {userId: "", actionNum: 0};
   let actionNum = 0;
   let smallBlindUser = firstUser;
+  let allUsers = [];
 
   // Must set these
   let bigBlindUser = "";
   let currentUser = smallBlindUser;
 
-  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum, currentUser, smallBlindUser, bigBlindUser};
+  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum, currentUser, smallBlindUser, bigBlindUser, allUsers};
 }
 
 function createDeck() {
@@ -128,4 +129,19 @@ function resetRound(game) {
   }
 }
 
-export {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind};
+function getGamePlayers(game) {
+  return game.users.length;
+}
+
+function removeUserFromGame(game, userId) {
+  let i = game.users.indexOf(userId)
+  if (i > -1) {
+    game.users.splice(i, 1);
+  }
+  i = game.wentUsers.indexOf(userId);
+  if (i > -1) {
+    game.wentUsers.splice(i, 1);
+  }
+}
+
+export {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind, getGamePlayers, removeUserFromGame};

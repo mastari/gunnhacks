@@ -12,7 +12,7 @@ import { Server } from "socket.io";
 import { getWinners } from "./batch_algorithm.js";
 import cookieParser from "cookie-parser";
 
-import { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind } from "./poker.js";
+import { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind, getGamePlayers, removeUserFromGame } from "./poker.js";
 import { User } from "./schema/user.js";
 import { Game } from "./schema/game.js";
 
@@ -61,7 +61,7 @@ app.get('/', async (req, res) => {
       await user.save();
     }
 
-    res.redirect("/play")
+    res.redirect("/match")
   } else {
     res.sendFile(path.join(__dirname, "src", "views", "welcome.html"));
   }
@@ -69,7 +69,29 @@ app.get('/', async (req, res) => {
 })
 
 app.get('/match', (req, res) => {
-  res.send(req.oidc.isAuthenticated() ? "please join a match" : "please login");
+  if (req.oidc.isAuthenticated()) {
+    // Matchmaking
+    if (currentMatchpool == "") {
+      // Make new match
+      let matchnum = Math.floor(Math.random() * 1000);
+      let game = createGame(req.oidc.user.sub);
+      games[matchnum] = game;
+      currentMatchpool = matchnum
+
+      res.redirect("/play/"+matchnum);
+    } else {
+      let currentGame = games[currentMatchpool];
+      if (getGamePlayers(currentGame) >= 5) {
+        res.redirect("/play/"+currentMatchpool)
+        currentMatchpool = "";
+      } else {
+        res.redirect("/play/"+currentMatchpool)
+      }
+    }
+  } else {
+    // must log in
+    res.redirect("/");
+  }
 })
 
 app.get('/batch', async (req, res) => {
@@ -87,25 +109,26 @@ server.listen(PORT, () => {
   console.log(`App listening on port ${PORT}`);
 });
 
-app.get('/play', (req, res) => {
+app.get('/play/:id', (req, res) => {
   // tell user who they are
   res.cookie("userId", req.oidc.user.sub);
+  res.cookie("roomId", req.params.id);
   res.sendFile(path.join(__dirname, "src", "views", "game.html"));
 });
 
-
-// Poker game
-
+// Poker matches
+var currentMatchpool = "";
 const games = {};
 
-// Poker page
+// Poker game ws
 io.of("/play").on("connection", async (socket) => {
   let {roomId, userId} = socket.handshake.query;
   socket.join(roomId);
   // Cookie encodes userId, so decode it
   userId = decodeURI(userId);
+  let smallId = userId.split("|")[1]
 
-  console.log("roomId", roomId, userId)
+  console.log(`User joined ${roomId}: ${smallId}`)
 
   // Get user
   let user = await User.findOne({userId});
@@ -115,20 +138,26 @@ io.of("/play").on("connection", async (socket) => {
     return
   }
 
-  // Setup game
-  var game;
+  // Game should already exist
   if (!(roomId in games)) {
-    games[roomId] = createGame(userId)
+    socket.emit("matchmaking");
+    return
   }
-  game = games[roomId];
+  var game = games[roomId];
 
   let clientHand = dealNCards(game.deck, 2);
-  socket.emit("deal", {clientHand, userId});
+  socket.emit("deal", {clientHand});
 
-  game.balances[userId] = 1000;
-  game.bets[userId] = 0;
-  game.hands[userId] = clientHand;
   game.users.push(userId);
+  // Player rejoins: keep balance
+  if (!game.allUsers.includes(userId)) {
+    game.allUsers.push(userId)
+    game.balances[userId] = 1000;
+    game.bets[userId] = 0;
+    game.hands[userId] = clientHand;
+  } else {
+    game.foldedUsers.push(userId);
+  }
 
   // Set blind users
   if (game.smallBlindUser == userId) {
@@ -232,9 +261,18 @@ io.of("/play").on("connection", async (socket) => {
       game.actionNum++;
     }
   })
+
+  // Remove data on disconnect
+  socket.on("disconnect", () => {
+    removeUserFromGame(game, userId);
+    if (getGamePlayers(game) == 0) {
+      delete games[roomId];
+    }
+    console.log(games)
+  })
 });
 
-async function recordWinners(game, winners) {
+async function recordWinners(gameObj, winners) {
   //! Untested
   let winnerObjs = await User.find({
     'userId': {
@@ -243,7 +281,7 @@ async function recordWinners(game, winners) {
   });
   console.log(winnerObjs)
   let winnerIds = winnerObjs.map(w => w._id);
-  let game = new Game({game, winners: winnerIds})
+  let game = new Game({gameObj, winners: winnerIds})
   await game.save();
 
   await User.updateMany({_id: {$in: winnerIds}}, {$push: {wins: game._id}});

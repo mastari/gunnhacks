@@ -7,8 +7,9 @@ var clientAction;
 var buttons;
 
 var userId = getCookie("userId");
+var roomId = getCookie("roomId")
 var socket = io.connect("/play", {
-  query: {roomId: 123, userId }
+  query: {roomId, userId }
 });
 
 
@@ -55,8 +56,12 @@ socket.on("action", data => {
 })
 
 socket.on("relogin", () => {
-  // location.href = "";
+  location.href = "";
   console.log("RELOG!", userId)
+})
+
+socket.on("matchmaking", () => {
+  location.href = "/match"
 })
 
 // Get cookie
