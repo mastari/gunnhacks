@@ -46,8 +46,8 @@ app.get('/match', (req, res) => {
 })
 
 app.get('/batch', async (req, res) => {
-  let result = await identify_batch([])
-  res.send(result.winners);
+  let result = await identify_batch()
+  res.send(result);
 })
 
 app.use(express.static(__dirname + "/public"));

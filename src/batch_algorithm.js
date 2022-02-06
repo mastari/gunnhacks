@@ -24,13 +24,15 @@ const num_map = {
 }
 
 let identify_batch = async (hands, communityCards) => {
-  hands = {
-    12345: [{ num: 11, suit: 2 }, { num: 4, suit: 2 }],
-    4321: [{ num: 2, suit: 2 }, { num: 4, suit: 2 }]
-  };
-
-  communityCards = [{ num: 3, suit: 1 }, { num: 11, suit: 0 }, { num: 6, suit: 2 }];
-
+  if (hands == undefined) {
+    hands = {
+      2345: [{ num: 11, suit: 0 }, { num: 12, suit: 0 }],
+      6789: [{ num: 3, suit: 2 }, { num: 4, suit: 2 }]
+    };
+  }
+  if (communityCards == undefined) {
+    communityCards = [{ num: 5, suit: 3 }, { num: 6, suit: 3 }, { num: 7, suit: 3 }, { num: 3, suit: 3 }, { num: 11, suit: 3 }];
+  }
 
   let player_ids = Object.keys(hands)
 
@@ -57,10 +59,7 @@ let identify_batch = async (hands, communityCards) => {
 
 
   let base_url = 'https://api.pokerapi.dev/v1/winner/texas_holdem?'
-
   let url = base_url + cc + pcs;
-  url = `https://api.pokerapi.dev/v1/winner/texas_holdem?cc=4C,QD,7H&pc[]=3H,5H&pc[]=QH,5H`
-  console.log(url)
 
   let response = await fetch(url)
   let result = await response.json()
@@ -68,17 +67,4 @@ let identify_batch = async (hands, communityCards) => {
   return result
 }
 
-
 export { identify_batch };
-
-// let request = new XMLHttpRequest();
-// request.open("GET", 'https://api.pokerapi.dev/v1/winner/texas_holdem?cc=AC,KD,QH,JS,7C&pc[]=10S,8C&pc[]=3S,2C&pc[]=QS,JH&pc[]=&pc[]=&pc[]=')
-// request.send()
-// request.onload = () => {
-//   console.log(request)
-//   if (request.status == 200) {
-//     result = JSON.parse(request.response)
-//   } else {
-//     console.log(`error ${request.status} ${request.statusText}`)
-//   }
-// }
