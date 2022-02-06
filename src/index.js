@@ -147,16 +147,21 @@ io.of("/play").on("connection", async (socket) => {
   }
   var game = games[roomId];
 
-  let clientHand = dealNCards(game.deck, 2);
-  socket.emit("deal", {clientHand});
 
   game.users.push(userId);
   // Player rejoins: keep balance
   if (!game.allUsers.includes(userId)) {
+    //deal
+    let clientHand = dealNCards(game.deck, 2);
+    socket.emit("deal", {clientHand});
+
     game.allUsers.push(userId)
     game.balances[userId] = 1000;
     game.bets[userId] = 0;
     game.hands[userId] = clientHand;
+
+    socket.broadcast.emit("newUser", {userId});
+    updateInfo(socket, game)
   } else {
     game.foldedUsers.push(userId);
   }
@@ -242,6 +247,7 @@ io.of("/play").on("connection", async (socket) => {
 
     if (isRoundOver(game, userId)) {
       resetRound(game);
+      updateInfo(socket, game);
       console.log("NEXT ROUND!!")
 
       if (game.bettingRound == 3) {
@@ -251,7 +257,7 @@ io.of("/play").on("connection", async (socket) => {
         console.log(game)
 
         if (winners.length == 1) {
-          game.balances[winner] += game.pot;
+          game.balances[winners[0]] += game.pot;
         } else if (winners.length == 2) {
           // Split pot if multiple winners
           winners.forEach(winner => {
@@ -276,6 +282,10 @@ io.of("/play").on("connection", async (socket) => {
     console.log(games)
   })
 });
+
+function updateInfo(socket, game) {
+  socket.emit("updateInfo", {communityCards: game.communityCards, users: game.users})
+}
 
 async function recordWinners(gameObj, winners) {
   //! Untested
