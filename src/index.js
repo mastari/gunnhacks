@@ -1,16 +1,17 @@
 // Setup config, access with process.env.<variable>
-require("dotenv").config();
+import { config } from "dotenv"
+config()
 
-const express = require('express');
-const mongoose = require("mongoose");
-const path = require("path")
+import { auth } from 'express-openid-connect'
+import express from 'express';
+import mongoose from "mongoose";
+import path from "path"
 
-const identify = require("./batch_algorithm")
+import { identify_batch } from "./batch_algorithm.js";
 
 const app = express();
 const port = 3000;
 
-const { auth } = require('express-openid-connect');
 
 const auth0_config = {
   authRequired: false,
@@ -32,10 +33,11 @@ mongoose.connect(
   }
 );
 
+let __dirname = path.resolve() + "/src/";
+
 
 app.get('/', (req, res) => {
   res.sendFile(req.oidc.isAuthenticated() ? path.join(__dirname, '/public/play.html') : path.join(__dirname, '/public/welcome.html'));
-  console.log(identify.identify_batch(['hey', 'hey']))
   //! Homepage here: Click to login, # stating how many matches are currently in session
 })
 
@@ -43,8 +45,9 @@ app.get('/match', (req, res) => {
   res.send(req.oidc.isAuthenticated() ? "please join a match" : "please login");
 })
 
-app.get('/batch', (req, res) => {
-  res.send(identify.identify_batch('af'));
+app.get('/batch', async (req, res) => {
+  let result = await identify_batch([])
+  res.send(result.winners);
 })
 
 app.use(express.static(__dirname + "/public"));
