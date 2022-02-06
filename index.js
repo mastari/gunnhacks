@@ -45,29 +45,28 @@ io.of("/").on("connection", (socket) => {
   // Set blind users
   if (game.smallBlindUser == userId) {
     bet(game, userId, smallBlind);
-    game.wentUsers.push(userId);
+    game.actionNum++;
   } else if (game.bigBlindUser == "") {
     game.bigBlindUser = userId;
-    game.wentUsers.push(userId);
     bet(game, userId, bigBlind);
+    game.actionNum++;
     // Small blind user starts if only 2 players
     game.currentUser = game.smallBlindUser;
     game.lastRaise = {userId, actionNum: game.actionNum};
   } else if (game.users.length == 3) {
     // Third player starts otherwise
+    game.wentUsers.push(game.smallBlindUser);
+    game.wentUsers.push(userId.bigBlindUser);
     game.currentUser = userId;
   }
 
   socket.on("action", (action) => {
-
     if (userId != game.currentUser) {
       console.log("Not your turn!", userId)
       return
     };
 
     if (game.wentUsers.includes(userId) || game.foldedUsers.includes(userId)) return;
-    game.wentUsers.push(userId);
-    game.actionNum++;
 
     if (!(userId in game.bets)) game.bets[userId] = 0
 
@@ -75,21 +74,38 @@ io.of("/").on("connection", (socket) => {
       // fold out of queue
       game.foldedUsers.push(userId)
     } else if (action == "call") {
+      if (game.actionNum == 0) {
+        console.log("ERROR: Can't call on first betting round after preflop!")
+      }
       // Bet current bet
       let amt = game.currentBet - game.bets[userId];
       bet(game, userId, amt);
     } else if (action == "raise") {
+      if (game.actionNum == 0) {
+        console.log("ERROR: Can't call on first betting round after preflop!")
+      }
       bet(game, userId, 100)
       game.lastRaise = {userId, actionNum: game.actionNum};
     } else if (action == "check") {
       // Do nothing
+      if (game.actionNum != 0) {
+        console.log("ERROR: Can only check on first betting round!!")
+        return
+      }
     } else if (action == "bet") {
+      if (game.actionNum != 0) {
+        console.log("ERROR: Can only bet on first betting round!!")
+        return
+      }
       // bet x amount
       // TODO: make this custom
       let amt = 100;
       bet(game, userId, amt);
+      game.lastRaise = {userId, actionNum: game.actionNum};
     }
 
+    game.wentUsers.push(userId);
+    console.log(action)
     printGame(game);
     game.currentUser = game.users[game.users.indexOf(game.currentUser)+1]
 
@@ -112,6 +128,8 @@ io.of("/").on("connection", (socket) => {
         resetGame(game);
         console.log(game)
       }
+    } else {
+      game.actionNum++;
     }
   })
 });

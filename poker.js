@@ -122,7 +122,7 @@ function resetRound(game) {
   game.bets = {};
 
   //TODO: choose small blind user for next turn
-  game.currentUser = game.startingUser;
+  game.currentUser = game.smallBlindUser;
   if (game.bettingRound > 1) {
     game.communityCards.push(game.deck.pop());
   }
