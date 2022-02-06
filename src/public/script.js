@@ -6,7 +6,7 @@ var pot;
 var clientAction;
 var buttons;
 
-var socket = io.connect("/", {
+var socket = io.connect("/play", {
   query: "roomId=123"
 });
 

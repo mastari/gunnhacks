@@ -128,4 +128,4 @@ function resetRound(game) {
   }
 }
 
-module.exports = {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind};
+export {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind};
