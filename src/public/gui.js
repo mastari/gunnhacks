@@ -20,6 +20,7 @@ class Button {
       this.clicked = true;
       // callback
       this.fn();
+      console.log("calling function!")
     } else if (!mouseIsPressed && this.clicked) {
       this.clicked = false;
     }

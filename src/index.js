@@ -134,12 +134,14 @@ io.of("/play").on("connection", async (socket) => {
   let user = await User.findOne({userId});
   if (!user) {
     // Can't play without being logged in!
+    console.log("must log in!")
     socket.emit("relogin");
     return
   }
 
   // Game should already exist
   if (!(roomId in games)) {
+    console.log("invalid match")
     socket.emit("matchmaking");
     return
   }
@@ -183,7 +185,10 @@ io.of("/play").on("connection", async (socket) => {
       return
     };
 
-    if (game.wentUsers.includes(userId) || game.foldedUsers.includes(userId)) return;
+    if (game.wentUsers.includes(userId) || game.foldedUsers.includes(userId)) {
+      console.log("Folded or went already!!!")
+      return
+    };
 
     if (!(userId in game.bets)) game.bets[userId] = 0
 
