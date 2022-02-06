@@ -6,13 +6,13 @@ var pot;
 var clientAction;
 var buttons;
 
+var userId = getCookie("userId");
 var socket = io.connect("/play", {
-  query: {roomId: 123, userId: getCookie("userId")}
+  query: {roomId: 123, userId }
 });
 
 
 const actions = ["fold", "call", "raise", "check", "bet"];
-
 
 // Setup
 function setup() {
@@ -42,9 +42,8 @@ function draw() {
 
 // Websocket events
 socket.on("deal", data => {
-  let { clientHand, userId } = data;
+  let { clientHand } = data;
   console.clear();
-  console.log(userId)
   console.log(clientHand);
 })
 
@@ -53,6 +52,11 @@ socket.on("action", data => {
   console.log(action)
   console.log(bets)
   console.log(currentUser)
+})
+
+socket.on("relogin", () => {
+  // location.href = "";
+  console.log("RELOG!", userId)
 })
 
 // Get cookie

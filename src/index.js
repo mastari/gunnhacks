@@ -1,7 +1,6 @@
 // Setup config, access with process.env.<variable>
-import config from "dotenv"
-config.config();
-
+import dotenv from "dotenv"
+dotenv.config();
 
 import { auth } from 'express-openid-connect'
 import express from 'express';
@@ -12,6 +11,10 @@ import { Server } from "socket.io";
 
 import { getWinners } from "./batch_algorithm.js";
 import cookieParser from "cookie-parser";
+
+import { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind } from "./poker.js";
+import { User } from "./schema/user.js";
+import { Game } from "./schema/game.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +29,11 @@ const auth0_config = {
   baseURL: process.env.AUTH0_BASEURL,
   clientID: process.env.AUTH0_CLIENTID,
   issuerBaseURL: process.env.AUTH0_ISSUER_BASEURL,
+  clientSecret: process.env.CLIENT_SECRET,
+  authorizationParams: {
+    response_type: 'code',
+    scope: 'openid profile'
+  }
 };
 
 //* auth router attaches /login, /logout, and /callback routes to the baseURL
@@ -42,9 +50,17 @@ mongoose.connect(
   }
 );
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   if (req.oidc.isAuthenticated()) {
-    // res.sendFile("play.html");
+    // Make user
+    let userId = req.oidc.user.sub;
+    let user = await User.findOne({userId})
+    console.log("user", user)
+    if (!user) {
+      let user = new User({username: req.oidc.user.name, userId, wins: []});
+      await user.save();
+    }
+
     res.redirect("/play")
   } else {
     res.sendFile(path.join(__dirname, "src", "views", "welcome.html"));
@@ -73,22 +89,31 @@ server.listen(PORT, () => {
 
 app.get('/play', (req, res) => {
   // tell user who they are
-  res.sendFile(path.join(__dirname, "src", "views", "index.html"));
+  res.cookie("userId", req.oidc.user.sub);
+  res.sendFile(path.join(__dirname, "src", "views", "game.html"));
 });
 
 
 // Poker game
-import { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind } from "./poker.js";
 
 const games = {};
 
 // Poker page
-io.of("/play").on("connection", (socket) => {
-  let {roomId} = socket.handshake.query;
+io.of("/play").on("connection", async (socket) => {
+  let {roomId, userId} = socket.handshake.query;
   socket.join(roomId);
-  //TODO: replace socket.id with auth0 id
-  let userId = socket.id;
+  // Cookie encodes userId, so decode it
+  userId = decodeURI(userId);
+
   console.log("roomId", roomId, userId)
+
+  // Get user
+  let user = await User.findOne({userId});
+  if (!user) {
+    // Can't play without being logged in!
+    socket.emit("relogin");
+    return
+  }
 
   // Setup game
   var game;
@@ -209,6 +234,17 @@ io.of("/play").on("connection", (socket) => {
   })
 });
 
-async function recordWinners(winners) {
+async function recordWinners(game, winners) {
+  //! Untested
+  let winnerObjs = await User.find({
+    'userId': {
+      $in: winners
+    }
+  });
+  console.log(winnerObjs)
+  let winnerIds = winnerObjs.map(w => w._id);
+  let game = new Game({game, winners: winnerIds})
+  await game.save();
 
+  await User.updateMany({_id: {$in: winnerIds}}, {$push: {wins: game._id}});
 }
