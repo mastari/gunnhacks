@@ -74,10 +74,20 @@ function everyoneWent(game) {
   return game.users.every(u => game.wentUsers.includes(u));
 }
 
+// Assume amt >= currentBet
+function bet(game, userId, amt) {
+  game.currentBet += amt;
+  game.balances[userId] -= amt;
+  game.bets[userId] += amt;
+  game.pot += amt;
+}
+
 function resetGame(game) {
+  game.deck = createDeck();
+  shuffleDeck(game.deck);
+
   game.bets = {};
   game.pot = 0;
-  game.communityCards = [];
   game.foldedUsers = [];
   game.currentBet = 0;
   game.wentUsers = [];
@@ -87,6 +97,18 @@ function resetGame(game) {
   for (let user of game.users) {
     game.hands[user] = dealNCards(game.deck, 2);
   }
+  game.communityCards = dealNCards(game.deck, 3);
 }
 
-module.exports = {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent};
+function resetRound(game) {
+  game.currentBet = 0;
+  game.wentUsers = [];
+  game.actionNum = 0;
+  game.bettingRound++;
+  game.bets = {};
+  if (bettingRound > 1) {
+    game.communityCards.push(game.deck.pop());
+  }
+}
+
+module.exports = {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet};

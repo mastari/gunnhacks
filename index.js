@@ -12,7 +12,7 @@ app.use(express.static("public"));
 app.use(express.static("views"));
 
 // Poker
-const { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent } = require("./poker");
+const { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet } = require("./poker");
 
 app.get('/', (req, res) => {
   res.sendFile("index.html");
@@ -43,25 +43,29 @@ io.of("/").on("connection", (socket) => {
   game.users.push(userId);
 
   socket.on("action", (action) => {
-    if (game.wentUsers.includes(userId)) return;
+    if (game.wentUsers.includes(userId) || game.foldedUsers.includes(userId)) return;
     game.wentUsers.push(userId);
     game.actionNum++;
+
+    if (!(userId in game.bets)) game.bets[userId] = 0
 
     if (action == "fold") {
       game.foldedUsers.push(userId)
     } else if (action == "call") {
       let amt = game.currentBet - game.bets[userId];
-      game.balances[userId] -= amt;
-      game.bets[userId] += amt;
-      game.pot += amt;
+      bet(game, userId, amt);
     } else if (action == "raise") {
-      game.currentBet += 100;
-      game.balances[userId] -= game.currentBet;
-      game.bets[userId] = game.currentBet;
-      game.pot += game.currentBet;
+      bet(game, userId, 100)
       game.lastRaise = {
         userId, actionNum: game.actionNum
       };
+    } else if (action == "check") {
+      // Do nothing
+    } else if (action == "bet") {
+      // bet x amount
+      // TODO: make this custom
+      let amt = 100;
+      bet(game, userId, amt);
     }
 
     printGame(game);
@@ -71,11 +75,7 @@ io.of("/").on("connection", (socket) => {
     }
 
     if (isRoundOver(game, userId)) {
-      game.communityCards.push(game.deck.pop());
-      game.currentBet = 0;
-      game.wentUsers = [];
-      game.bettingRound++;
-      game.actionNum = 0;
+      resetRound();
 
       if (game.bettingRound == 3) {
         // Winner takes all!
