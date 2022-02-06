@@ -104,11 +104,15 @@ io.of("/").on("connection", (socket) => {
       game.lastRaise = {userId, actionNum: game.actionNum};
     }
 
+
     game.wentUsers.push(userId);
     console.log(action)
     printGame(game);
-    game.currentUser = game.users[game.users.indexOf(game.currentUser)+1]
 
+    socket.to(roomId).emit("action", {action, bets: game.bets, currentUser: game.currentUser})
+
+    // Set current user
+    game.currentUser = game.users[game.users.indexOf(game.currentUser)+1]
     if (everyoneWent(game)) {
       game.wentUsers = [];
       game.currentUser = game.smallBlindUser;
