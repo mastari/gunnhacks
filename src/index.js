@@ -1,6 +1,7 @@
 // Setup config, access with process.env.<variable>
-import { config } from "dotenv"
-config()
+import config from "dotenv"
+config.config();
+
 
 import { auth } from 'express-openid-connect'
 import express from 'express';
@@ -9,7 +10,8 @@ import path from "path"
 import http from "http";
 import { Server } from "socket.io";
 
-import { identify_batch } from "./batch_algorithm.js";
+import { getWinners } from "./batch_algorithm.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const server = http.createServer(app);
@@ -20,16 +22,17 @@ const __dirname = path.resolve();
 const auth0_config = {
   authRequired: false,
   auth0Logout: true,
-  secret: process.env.ARIS_SUPER_SAUCY_SECRET,
-  baseURL: 'http://localhost:3000',
-  clientID: 'rzdw84N2gPM1wIoh7X6dnt4DumVNjK55',
-  issuerBaseURL: 'https://dev-7uqc1ijz.us.auth0.com',
+  secret: process.env.AUTH0_SECRET,
+  baseURL: process.env.AUTH0_BASEURL,
+  clientID: process.env.AUTH0_CLIENTID,
+  issuerBaseURL: process.env.AUTH0_ISSUER_BASEURL,
 };
 
 //* auth router attaches /login, /logout, and /callback routes to the baseURL
 app.use(auth(auth0_config));
 app.use("/", express.static("src/public"));
 app.use("/", express.static("src/views"));
+app.use(cookieParser())
 
 mongoose.connect(
   process.env.MONGODB_URI,
@@ -54,7 +57,12 @@ app.get('/match', (req, res) => {
 })
 
 app.get('/batch', async (req, res) => {
-  let result = await identify_batch()
+  let hands = {
+    2345: [{ num: 11, suit: 0 }, { num: 12, suit: 0 }],
+    6789: [{ num: 3, suit: 2 }, { num: 4, suit: 2 }]
+  };
+  let communityCards = [{ num: 5, suit: 3 }, { num: 6, suit: 3 }, { num: 7, suit: 3 }, { num: 3, suit: 3 }, { num: 11, suit: 3 }];
+  let result = await getWinners(hands, communityCards);
   res.send(result);
 })
 
@@ -64,6 +72,7 @@ server.listen(PORT, () => {
 });
 
 app.get('/play', (req, res) => {
+  // tell user who they are
   res.sendFile(path.join(__dirname, "src", "views", "index.html"));
 });
 
@@ -75,8 +84,9 @@ const games = {};
 
 // Poker page
 io.of("/play").on("connection", (socket) => {
-  let roomId = socket.handshake.query.roomId;
+  let {roomId} = socket.handshake.query;
   socket.join(roomId);
+  //TODO: replace socket.id with auth0 id
   let userId = socket.id;
   console.log("roomId", roomId, userId)
 
@@ -113,7 +123,7 @@ io.of("/play").on("connection", (socket) => {
     game.currentUser = userId;
   }
 
-  socket.on("action", (action) => {
+  socket.on("action", async (action) => {
     if (userId != game.currentUser) {
       console.log("Not your turn!", userId)
       return
@@ -164,7 +174,7 @@ io.of("/play").on("connection", (socket) => {
 
     socket.to(roomId).emit("action", {action, bets: game.bets, currentUser: game.currentUser})
 
-    // Set current user
+    // Set next current user
     game.currentUser = game.users[game.users.indexOf(game.currentUser)+1]
     if (everyoneWent(game)) {
       game.wentUsers = [];
@@ -177,16 +187,28 @@ io.of("/play").on("connection", (socket) => {
 
       if (game.bettingRound == 3) {
         // Winner takes all!
-        // let winner = getWinner(game.hands, game.communityCards);
-        let winner = Object.keys(game.hands)[0];
-        game.balances[winner] += game.pot;
-        console.log("winner!!!!", winner, game.balances[winner]);
-        // TODO: Record winner
-        resetGame(game);
+        let winners = await getWinners(game.hands, game.communityCards);
+        console.log("winner!!!!", winners);
         console.log(game)
+
+        if (winners.length == 1) {
+          game.balances[winner] += game.pot;
+        } else if (winners.length == 2) {
+          // Split pot if multiple winners
+          winners.forEach(winner => {
+            game.balances[winner] += Math.floor(game.pot/winners.length);
+          });
+        }
+        // TODO: Record winner
+        recordWinners(winners)
+        resetGame(game);
       }
     } else {
       game.actionNum++;
     }
   })
 });
+
+async function recordWinners(winners) {
+
+}

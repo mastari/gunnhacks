@@ -7,7 +7,7 @@ var clientAction;
 var buttons;
 
 var socket = io.connect("/play", {
-  query: "roomId=123"
+  query: {roomId: 123, userId: getCookie("userId")}
 });
 
 
@@ -54,3 +54,10 @@ socket.on("action", data => {
   console.log(bets)
   console.log(currentUser)
 })
+
+// Get cookie
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}

@@ -23,17 +23,7 @@ const num_map = {
   12: "K"
 }
 
-let identify_batch = async (hands, communityCards) => {
-  if (hands == undefined) {
-    hands = {
-      2345: [{ num: 11, suit: 0 }, { num: 12, suit: 0 }],
-      6789: [{ num: 3, suit: 2 }, { num: 4, suit: 2 }]
-    };
-  }
-  if (communityCards == undefined) {
-    communityCards = [{ num: 5, suit: 3 }, { num: 6, suit: 3 }, { num: 7, suit: 3 }, { num: 3, suit: 3 }, { num: 11, suit: 3 }];
-  }
-
+let getWinners = async (hands, communityCards) => {
   let player_ids = Object.keys(hands)
 
   let hand_construct = {}
@@ -57,14 +47,24 @@ let identify_batch = async (hands, communityCards) => {
     pcs += "&pc[]=" + hand_construct[Object.keys(hand_construct)[i]].join(",")
   }
 
-
-  let base_url = 'https://api.pokerapi.dev/v1/winner/texas_holdem?'
-  let url = base_url + cc + pcs;
+  const POKER_API = process.env.POKER_API;
+  let url = `${POKER_API}?${cc}${pcs}`;
 
   let response = await fetch(url)
   let result = await response.json()
 
-  return result
+  let winners = result.winners.map(winner => Object.keys(hand_construct).find(x => hand_construct[x] == winner.cards));
+
+  return winners
 }
 
-export { identify_batch };
+export { getWinners };
+
+// Example hands/community cards
+//   hands = {
+//     2345: [{ num: 11, suit: 0 }, { num: 12, suit: 0 }],
+//     6789: [{ num: 3, suit: 2 }, { num: 4, suit: 2 }]
+//   };
+//   communityCards = [{ num: 5, suit: 3 }, { num: 6, suit: 3 }, { num: 7, suit: 3 }, { num: 3, suit: 3 }, { num: 11, suit: 3 }];
+// output = {"winners":[{"cards":"QD,KD","hand":"4S,6S,7S,8S,QS","result":"flush"},{"cards":"4H,5H","hand":"4S,6S,7S,8S,QS","result":"flush"}],
+//           "players":[{"cards":"QD,KD","hand":"4S,6S,7S,8S,QS","result":"flush"},{"cards":"4H,5H","hand":"4S,6S,7S,8S,QS","result":"flush"}]}
