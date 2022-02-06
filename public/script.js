@@ -10,13 +10,15 @@ var socket = io.connect("/", {
 });
 
 // Action
-let actionButton = document.getElementById("actionButton");
-let actionBox = document.getElementById("actionBox");
-actionButton.addEventListener("click", () => {
-  let action = actionBox.value;
-  clientAction = action;
-  socket.emit("action", action);
-})
+function setupAction(action) {
+  let actionButton = document.getElementById(action);
+  actionButton.addEventListener("click", () => {
+    socket.emit("action", action);
+  })
+}
+
+let actions = ["fold", "call", "raise", "check", "bet"];
+actions.forEach(setupAction);
 
 
 // Setup

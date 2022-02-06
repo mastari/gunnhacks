@@ -24,18 +24,18 @@ const games = {};
 io.of("/").on("connection", (socket) => {
   let roomId = socket.handshake.query.roomId;
   socket.join(roomId);
-  console.log("roomId", roomId)
+  let userId = socket.id;
+  console.log("roomId", roomId, userId)
 
   // Setup game
   var game;
   if (!(roomId in games)) {
-    games[roomId] = createGame()
+    games[roomId] = createGame(userId)
   }
   game = games[roomId];
 
   let clientHand = dealNCards(game.deck, 2);
   socket.emit("deal", {clientHand});
-  let userId = socket.id;
 
   game.balances[userId] = 1000;
   game.bets[userId] = 0;
@@ -43,6 +43,12 @@ io.of("/").on("connection", (socket) => {
   game.users.push(userId);
 
   socket.on("action", (action) => {
+
+    if (userId != game.currentUser) {
+      console.log("Not your turn!", userId)
+      return
+    };
+
     if (game.wentUsers.includes(userId) || game.foldedUsers.includes(userId)) return;
     game.wentUsers.push(userId);
     game.actionNum++;
@@ -53,6 +59,7 @@ io.of("/").on("connection", (socket) => {
       game.foldedUsers.push(userId)
     } else if (action == "call") {
       let amt = game.currentBet - game.bets[userId];
+      console.log(amt)
       bet(game, userId, amt);
     } else if (action == "raise") {
       bet(game, userId, 100)
@@ -69,13 +76,16 @@ io.of("/").on("connection", (socket) => {
     }
 
     printGame(game);
+    game.currentUser = game.users[game.users.indexOf(game.currentUser)+1]
 
     if (everyoneWent(game)) {
       game.wentUsers = [];
+      game.currentUser = game.startingUser;
     }
 
     if (isRoundOver(game, userId)) {
-      resetRound();
+      resetRound(game);
+      console.log("NEXT ROUND!!")
 
       if (game.bettingRound == 3) {
         // Winner takes all!

@@ -1,5 +1,5 @@
 
-function createGame() {
+function createGame(currentUser) {
   var deck = createDeck();
   shuffleDeck(deck);
 
@@ -23,8 +23,9 @@ function createGame() {
   let bettingRound = 0;
   let lastRaise = {userId: "", actionNum: 0};
   let actionNum = 0;
+  let startingUser = currentUser;
 
-  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum};
+  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum, currentUser, startingUser};
 }
 
 function createDeck() {
@@ -61,7 +62,7 @@ function dealNCards(deck, n) {
 }
 
 function printGame(game) {
-  let {deck, ...stuff} = game;
+  let {deck, hands, startingUser, communityCards, ...stuff} = game;
   console.log(stuff)
 }
 
@@ -76,9 +77,9 @@ function everyoneWent(game) {
 
 // Assume amt >= currentBet
 function bet(game, userId, amt) {
-  game.currentBet += amt;
   game.balances[userId] -= amt;
   game.bets[userId] += amt;
+  game.currentBet = game.bets[userId];
   game.pot += amt;
 }
 
@@ -92,6 +93,7 @@ function resetGame(game) {
   game.currentBet = 0;
   game.wentUsers = [];
   game.bettingRound = 0;
+  game.currentUser = game.startingUser;
 
   game.hands = {};
   for (let user of game.users) {
@@ -106,7 +108,10 @@ function resetRound(game) {
   game.actionNum = 0;
   game.bettingRound++;
   game.bets = {};
-  if (bettingRound > 1) {
+
+  //TODO: choose small blind user for next turn
+  game.currentUser = game.startingUser;
+  if (game.bettingRound > 1) {
     game.communityCards.push(game.deck.pop());
   }
 }
