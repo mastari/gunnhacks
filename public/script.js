@@ -36,6 +36,8 @@ function draw() {
 }
 
 socket.on("deal", data => {
+  let { clientHand, userId } = data;
   console.clear();
-  console.log(data)
+  console.log(userId)
+  console.log(clientHand);
 })

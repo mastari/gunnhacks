@@ -1,5 +1,7 @@
+const smallBlind = 10;
+const bigBlind = smallBlind * 2;
 
-function createGame(currentUser) {
+function createGame(firstUser) {
   var deck = createDeck();
   shuffleDeck(deck);
 
@@ -23,9 +25,13 @@ function createGame(currentUser) {
   let bettingRound = 0;
   let lastRaise = {userId: "", actionNum: 0};
   let actionNum = 0;
-  let startingUser = currentUser;
+  let smallBlindUser = firstUser;
 
-  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum, currentUser, startingUser};
+  // Must set these
+  let bigBlindUser = "";
+  let currentUser = smallBlindUser;
+
+  return {deck, communityCards, pot, bets, balances, foldedUsers, currentBet, wentUsers, users, hands, bettingRound, lastRaise, actionNum, currentUser, smallBlindUser, bigBlindUser};
 }
 
 function createDeck() {
@@ -62,7 +68,7 @@ function dealNCards(deck, n) {
 }
 
 function printGame(game) {
-  let {deck, hands, startingUser, communityCards, ...stuff} = game;
+  let {deck, hands, smallBlindUser, communityCards, ...stuff} = game;
   console.log(stuff)
 }
 
@@ -93,7 +99,13 @@ function resetGame(game) {
   game.currentBet = 0;
   game.wentUsers = [];
   game.bettingRound = 0;
-  game.currentUser = game.startingUser;
+
+  // Choose new small blind
+  let idx = game.users.indexOf(game.smallBlindUser)+1;
+  if (idx >= game.users.length) idx = 0;
+
+  game.smallBlindUser = game.users[idx];
+  game.currentUser = game.smallBlindUser;
 
   game.hands = {};
   for (let user of game.users) {
@@ -116,4 +128,4 @@ function resetRound(game) {
   }
 }
 
-module.exports = {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet};
+module.exports = {createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind};

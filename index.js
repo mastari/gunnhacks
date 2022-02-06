@@ -12,7 +12,7 @@ app.use(express.static("public"));
 app.use(express.static("views"));
 
 // Poker
-const { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet } = require("./poker");
+const { createGame, dealNCards, printGame, isRoundOver, resetGame, everyoneWent, resetRound, bet, smallBlind, bigBlind } = require("./poker");
 
 app.get('/', (req, res) => {
   res.sendFile("index.html");
@@ -35,12 +35,28 @@ io.of("/").on("connection", (socket) => {
   game = games[roomId];
 
   let clientHand = dealNCards(game.deck, 2);
-  socket.emit("deal", {clientHand});
+  socket.emit("deal", {clientHand, userId});
 
   game.balances[userId] = 1000;
   game.bets[userId] = 0;
   game.hands[userId] = clientHand;
   game.users.push(userId);
+
+  // Set blind users
+  if (game.smallBlindUser == userId) {
+    bet(game, userId, smallBlind);
+    game.wentUsers.push(userId);
+  } else if (game.bigBlindUser == "") {
+    game.bigBlindUser = userId;
+    game.wentUsers.push(userId);
+    bet(game, userId, bigBlind);
+    // Small blind user starts if only 2 players
+    game.currentUser = game.smallBlindUser;
+    game.lastRaise = {userId, actionNum: game.actionNum};
+  } else if (game.users.length == 3) {
+    // Third player starts otherwise
+    game.currentUser = userId;
+  }
 
   socket.on("action", (action) => {
 
@@ -56,16 +72,15 @@ io.of("/").on("connection", (socket) => {
     if (!(userId in game.bets)) game.bets[userId] = 0
 
     if (action == "fold") {
+      // fold out of queue
       game.foldedUsers.push(userId)
     } else if (action == "call") {
+      // Bet current bet
       let amt = game.currentBet - game.bets[userId];
-      console.log(amt)
       bet(game, userId, amt);
     } else if (action == "raise") {
       bet(game, userId, 100)
-      game.lastRaise = {
-        userId, actionNum: game.actionNum
-      };
+      game.lastRaise = {userId, actionNum: game.actionNum};
     } else if (action == "check") {
       // Do nothing
     } else if (action == "bet") {
@@ -80,7 +95,7 @@ io.of("/").on("connection", (socket) => {
 
     if (everyoneWent(game)) {
       game.wentUsers = [];
-      game.currentUser = game.startingUser;
+      game.currentUser = game.smallBlindUser;
     }
 
     if (isRoundOver(game, userId)) {
@@ -95,6 +110,7 @@ io.of("/").on("connection", (socket) => {
         console.log("winner!!!!", winner, game.balances[winner]);
         // TODO: Record winner
         resetGame(game);
+        console.log(game)
       }
     }
   })
@@ -102,7 +118,7 @@ io.of("/").on("connection", (socket) => {
 
 const PORT = process.env.PORT ?? 3000
 server.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}`);
+  console.log(`App listening on port ${PORT}`);
 });
 
 app.get('/', (req, res) => {
